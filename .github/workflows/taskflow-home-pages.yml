@@ -1,0 +1,89 @@
+name: TaskFlow Home · Publicar presentación
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: taskflow-home-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract original presentation (only if index.html is absent)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          index = Path("index.html")
+          marker = Path(".nojekyll")
+          archive = Path("TaskFlow_Home_PARA_GITHUB.zip")
+          expected_zip = "ca00f2aa36f9cda6876b91bb060f0a6dccd361cdfeda51bee8b5e7b30397b2a2"
+          expected_html = "d46804ca5acbb4d3adebdeb994ee4571813c1b26eedab730cb15e1b59e88ce6d"
+
+          if not index.exists():
+              if not archive.is_file():
+                  raise SystemExit("Missing both index.html and the original ZIP.")
+              if hashlib.sha256(archive.read_bytes()).hexdigest() != expected_zip:
+                  raise SystemExit("Original ZIP SHA-256 does not match the approved baseline.")
+              with ZipFile(archive) as source:
+                  if set(source.namelist()) != {"index.html", ".nojekyll"}:
+                      raise SystemExit("Unexpected files inside original ZIP.")
+                  html = source.read("index.html")
+                  if hashlib.sha256(html).hexdigest() != expected_html:
+                      raise SystemExit("Original HTML SHA-256 does not match the approved baseline.")
+                  if source.read(".nojekyll") != b"":
+                      raise SystemExit("Unexpected content in .nojekyll.")
+              index.write_bytes(html)
+              marker.write_bytes(b"")
+          elif not marker.exists():
+              marker.write_bytes(b"")
+
+          if not index.is_file() or not marker.is_file():
+              raise SystemExit("Required GitHub Pages files are missing.")
+          print("Presentation ready:", index.stat().st_size, "bytes")
+          PY
+
+      - name: Save original files to main
+        shell: bash
+        run: |
+          git add -- index.html .nojekyll
+          if ! git diff --cached --quiet; then
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Publish original TaskFlow Home presentation files"
+            git push origin HEAD:main
+          fi
+
+      - name: Prepare clean website artifact
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/taskflow-home-site"
+          cp index.html .nojekyll "$RUNNER_TEMP/taskflow-home-site/"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/taskflow-home-site
+
+      - name: Deploy site
+        id: deployment
+        uses: actions/deploy-pages@v4
