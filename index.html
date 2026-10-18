@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#05090f">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,12 +11,12 @@
 <meta name="description" content="TaskFlow organiza tareas, hábitos, rutinas y progreso en un sistema diseñado para convertir objetivos en acciones diarias medibles.">
 <title>TaskFlow · Organiza. Avanza. Cumple.</title>
 <style>
-/* TaskFlow Home / Presentación — Experiencia visual V3.0.0
+/* TaskFlow Home / Presentación — Experiencia visual V3.0.1
    Solo presentación. Sin dependencias, sin cambios al motor de TaskFlow.
    Descarga: únicamente enlace directo al archivo APK. */
 :root{color-scheme:dark;--ink:#f4fcff;--muted:#aec6d2;--dim:#7796a4;--surface:#0a1720;--surface2:#0c2027;--edge:rgba(139,242,230,.18);--aqua:#66ffe6;--aqua2:#00d6c1;--ember:#ffad59;--tangerine:#f47c38;--ease:cubic-bezier(.2,.75,.18,1)}
 *,*::before,*::after{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:108px}
+html{scroll-behavior:smooth;scroll-padding-top:108px;touch-action:pan-x pan-y}
 body{margin:0;min-width:320px;overflow-x:hidden;color:var(--ink);font-family:Inter,"Segoe UI Variable","Segoe UI",system-ui,-apple-system,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;background:#03090e;
  background-image:radial-gradient(ellipse 800px 750px at 105% 6%,rgba(0,196,187,.15),transparent 78%),radial-gradient(ellipse 1000px 700px at -20% 41%,rgba(30,119,146,.15),transparent 72%),radial-gradient(ellipse 880px 880px at 120% 78%,rgba(225,94,29,.09),transparent 78%),linear-gradient(180deg,#061118,#03090e 29%,#061119 72%,#02070c)}
 body::before{content:"";position:absolute;top:0;left:0;right:0;height:1200px;z-index:-1;pointer-events:none;opacity:.18;background-image:linear-gradient(rgba(118,245,223,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(118,245,223,.12) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(#000,transparent 95%)}
@@ -212,8 +212,11 @@ img{-webkit-user-drag:none!important;user-drag:none!important;pointer-events:non
   document.addEventListener("keydown", function(e){
     const k = (e.key || "").toLowerCase();
     const mod = e.ctrlKey || e.metaKey;
+    const isZoomKey = ["+", "-", "=", "0", "add", "subtract", "numpadadd", "numpadsubtract", "numpad0"].includes(k) ||
+      ["NumpadAdd", "NumpadSubtract", "Numpad0", "NumpadEqual"].includes(e.code);
     if (
       (mod && ["a","c","s","u","p"].includes(k)) ||
+      (mod && isZoomKey) ||
       (mod && e.shiftKey && ["i","j","c"].includes(k)) ||
       e.key === "F12"
     ) {
@@ -221,6 +224,17 @@ img{-webkit-user-drag:none!important;user-drag:none!important;pointer-events:non
       e.stopPropagation();
     }
   }, true);
+
+  // Bloqueo de zoom por Ctrl/Cmd + rueda y pellizco, sin impedir el desplazamiento normal.
+  document.addEventListener("wheel", function(e){
+    if (e.ctrlKey || e.metaKey) e.preventDefault();
+  }, {passive:false, capture:true});
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function(type){
+    document.addEventListener(type, function(e){e.preventDefault();}, {passive:false, capture:true});
+  });
+  document.addEventListener("touchmove", function(e){
+    if (e.touches.length > 1) e.preventDefault();
+  }, {passive:false, capture:true});
 
   document.querySelectorAll("img").forEach(function(img){
     img.setAttribute("draggable","false");
